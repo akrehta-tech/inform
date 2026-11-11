@@ -1,6 +1,6 @@
 import random
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
 
 fig, ax = plt.subplots(figsize=(6, 6))
 ax.set_title("Случайное блуждание")
