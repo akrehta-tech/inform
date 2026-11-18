@@ -2,80 +2,72 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 
-# 1. Расчёт точки остановки и данных
-t_stop = 20 * np.log2(1000)
-t = np.linspace(0, t_stop, 400)
-N = 2 ** (t / 20)
+# 1. Расчёт точки остановки (когда T = 40°C)
+t_stop = -20 * np.log(20 / 70)  # ≈ 25.06 мин
 
-# 2. Создание двух панелей рядом
-fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+# Данные для полной фоновой кривой (с небольшим запасом, как на превью) и для анимации
+t_full = np.linspace(0, 26.5, 400)
+T_full = 20 + 70 * np.exp(-0.05 * t_full)
 
-# Настройка левой панели (обычная шкала)
-ax1.set_title("Обычная шкала: «незаметно -> БУМ!»", fontsize=11)
-ax1.set_xlabel("Минуты")
-ax1.set_ylabel("Бактерий")
-ax1.set_xlim(0, 205)
-ax1.set_ylim(0, 1080)
-ax1.grid(True, alpha=0.3)
+t_anim = np.linspace(0, t_stop, 300)
+T_anim = 20 + 70 * np.exp(-0.05 * t_anim)
 
-# Настройка правой панели (логарифмическая шкала)
-ax2.set_title("Лог-шкала: ровная прямая", fontsize=11)
-ax2.set_xlabel("Минуты")
-ax2.set_ylabel("Бактерий (log)")
-ax2.set_yscale('log')
-ax2.set_xlim(0, 205)
-ax2.set_ylim(1, 1300)
-ax2.grid(True, which="both", alpha=0.3)
+# 2. Настройка графика
+fig, ax = plt.subplots(figsize=(8, 4.5))
+ax.set_xlim(0, 27.5)
+ax.set_ylim(15, 95)
 
-# 3. Общие элементы для обеих панелей (порог 1000 и бледная тень кривой)
-for ax in (ax1, ax2):
-    ax.axhline(1000, ls='--', color='red', lw=1.2)
-    ax.plot(t, N, color='lightgray', lw=1.5, zorder=1)
+ax.set_title("Чай остывает по закону Ньютона", fontsize=12)
+ax.set_xlabel("Минуты")
+ax.set_ylabel("Температура, °C")
+ax.grid(True, alpha=0.3)
 
-# Анимируемые элементы на левом графике
-line1, = ax1.plot([], [], color='green', lw=2, zorder=2)
-dot1, = ax1.plot([], [], marker='o', markersize=7, color='green', zorder=3)
-text1 = ax1.text(0.03, 0.94, "", transform=ax1.transAxes, va='top', family='monospace', fontsize=9)
+# Бледная фоновая кривая
+ax.plot(t_full, T_full, color='#d8cfc8', lw=2, zorder=1)
 
-# Анимируемые элементы на правом графике
-line2, = ax2.plot([], [], color='green', lw=2, zorder=2)
-dot2, = ax2.plot([], [], marker='o', markersize=7, color='green', zorder=3)
-text2 = ax2.text(0.03, 0.94, "", transform=ax2.transAxes, va='top', family='monospace', fontsize=9)
+# Горизонтальные линии уровней (питьевая и комнатная температура)
+ax.axhline(40, ls='--', color='orange', lw=1.2, alpha=0.8)
+ax.text(0.5, 41.5, "питьевая 40°C", color='orange', fontsize=9)
 
-last_frame = len(t) - 1
+ax.axhline(20, ls='--', color='royalblue', lw=1.2)
+ax.text(13.8, 21.5, "комнатная 20°C", color='royalblue', fontsize=9)
+
+# 3. Анимируемые элементы
+line, = ax.plot([], [], color='saddlebrown', lw=2.5, zorder=2)
+dot, = ax.plot([], [], marker='o', markersize=9, color='crimson', zorder=3)
+info_text = ax.text(0.7, 89, "", va='top', family='monospace', fontsize=10)
+
+last_frame = len(t_anim) - 1
 
 # 4. Функция обновления кадра
 def update(frame):
-    n = frame + 1
-    curr_t = t[frame]
-    curr_N = N[frame]
+    curr_t = t_anim[frame]
+    curr_T = T_anim[frame]
     
-    # Отрисовка пройденного пути и текущей точки
-    line1.set_data(t[:n], N[:n])
-    dot1.set_data([curr_t], [curr_N])
+    # Пройденный участок и позиция маркера
+    line.set_data(t_anim[:frame+1], T_anim[:frame+1])
+    dot.set_data([curr_t], [curr_T])
     
-    line2.set_data(t[:n], N[:n])
-    dot2.set_data([curr_t], [curr_N])
-    
-    # Обновление счётчиков в левом верхнем углу каждой панели
-    info = f"t = {curr_t:.1f} мин\nN = {int(round(curr_N))}"
-    text1.set_text(info)
-    text2.set_text(info)
-    
-    # Финальный кадр: крупные красные маркеры и общий заголовок с ответом
-    if frame == last_frame:
-        for dot in (dot1, dot2):
-            dot.set_color('red')
-            dot.set_markersize(11)
-        hours = int(curr_t // 60)
-        mins = curr_t % 60
-        fig.suptitle(f"Порог 1000 достигнут за {curr_t:.1f} мин ({hours} ч {mins:.1f} мин)!", 
-                     fontsize=13, fontweight='bold', color='darkred')
+    # Плавная смена цвета от горячего красного к тёплому оранжевому/зелёному
+    if curr_T > 65:
+        dot.set_color('crimson')
+    elif curr_T > 45:
+        dot.set_color('darkorange')
+    else:
+        dot.set_color('seagreen')
         
-    return line1, dot1, text1, line2, dot2, text2
+    # Счётчик в левом верхнем углу
+    info_text.set_text(f"t = {curr_t:4.1f} мин\nT = {curr_T:4.1f} °C")
+    
+    # Финальный кадр
+    if frame == last_frame:
+        dot.set_markersize(11)
+        ax.set_title(f"Чай остыл до 40°C за {curr_t:.1f} мин!", fontsize=12, fontweight='bold', color='seagreen')
+        
+    return line, dot, info_text
 
-# 5. Запуск анимации без повтора (repeat=False)
-ani = FuncAnimation(fig, update, frames=len(t), interval=20, blit=False, repeat=False)
+# 5. Запуск анимации без зацикливания
+ani = FuncAnimation(fig, update, frames=len(t_anim), interval=25, blit=False, repeat=False)
 
 plt.tight_layout()
 plt.show()
